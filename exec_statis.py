@@ -88,3 +88,4 @@ if __name__ == '__main__':
 	region_df = statis_region(ds_load)
 	points_df = statis_points(ds_load)
 	
+	new = None
