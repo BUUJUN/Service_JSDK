@@ -43,6 +43,12 @@ def statis_region(data:Union[xr.DataArray, xr.Dataset], ):
 		
 		data_p = data_p.reset_index()
 		
+		columns = \
+			["id", "name", "time"] + \
+			[col for col in data_p.columns if col not in ["id", "name", "time"]]
+		
+		data_p = data_p[columns]
+		
 		region_res.update({period: data_p})
 	
 	return region_res
@@ -60,6 +66,12 @@ def statis_points(data: Union[xr.DataArray, xr.Dataset], ):
 	for period in region_res:
 		data_p = region_res[period]
 		data_p = data_p.reset_coords().to_dataframe().reset_index()
+		
+		columns = \
+			["station", "lon", "lat", "time"] + \
+			[col for col in data_p.columns if col not in ["station", "lon", "lat", "time"]]
+		
+		data_p = data_p[columns]
 		
 		region_res.update({period: data_p})
 	
