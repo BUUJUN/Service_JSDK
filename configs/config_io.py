@@ -18,11 +18,38 @@ file_info = {
 		"prefix": os.path.join(dsfile_root, "6-1km_grid"),
 		"format": "1KM_{var}_{ymd}.nc",
 		"time_re": r"1KM_\w+_(\d+).nc",
+		"time_fmt": "%Y%m%d",
 		"type": "nc",
 		"vars": {
 			'tp': 'PRE', 'sp': 'PRS',
 			't2m': 'TMP', 'd2m': 'DPT', 'r2m': 'RH',
 			'ws10': 'WIN', 'u10': 'WIU', 'v10': 'WIV'
+		},
+	},
+	"5km": {
+		"prefix": os.path.join(dsfile_root, "4-5km_grid"),
+		"format": "5KM_{var}_{ymdh}.nc",
+		"time_re": r"1KM_\w+_(\d+).nc",
+		"time_fmt":"%Y%m%d%H",
+		"type": "nc",
+		"vars": {
+			'tp': 'PRE', 'sp': 'PRS',
+			't2m': 'TMP', 'd2m': 'DPT', 'r2m': 'RH',
+			'ws10': 'WIN', 'u10': 'WIU', 'v10': 'WIV'
+		},
+	},
+	"skjc": {
+		"prefix": os.path.join(dsfile_root, "9-skjc"),
+		"format": os.path.join("**", "SURF-{region}-{period}-{time}.txt"),
+		"time_re": r"SURF-\w+-\w+-(\d+).txt",
+		"time_fmt": None,
+		"type": "txt",
+		"vars": {
+			'tp': 'PRE_1h', 'sp': 'PRS',
+			't2m': 'TEM', 'r2m': 'RHU',
+			'ws10': 'WIN_S_Avg_2mi',
+			'wd10': 'WIN_D_Avg_2mi',
+			'tcc':'CLO_Cov'
 		},
 	}
 }
@@ -84,6 +111,10 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 	
 	varlist = [file_vars[v] if v in file_vars else v for v in varlist]
 	
+	varlist = list(set(varlist))
+	
+	print(varlist)
+	
 	fns = list()
 	
 	for dt in dtlist:
@@ -93,6 +124,7 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 		for v in varlist:
 			fn_format = file_fmt.format(var=v, **kwargs)
 			# print("[File Format]:\t", fn_format)
+			# print(os.path.join(file_path, fn_format))
 			fns.extend(glob(os.path.join(file_path, fn_format)))
 	
 	fns = sorted(list(set(fns)))
@@ -100,6 +132,35 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 	return fns
 
 def extract_times(dsname, filenames):
-	time_fmt = file_info[dsname]['time_re']
-	times = {f: pd.to_datetime(re.findall(time_fmt, f)[0]) for f in filenames}
+	time_re = file_info[dsname]['time_re']
+	time_fmt = file_info[dsname]['time_fmt']
+	
+	times = {}
+	
+	for fn in filenames:
+		time_str = re.findall(time_re, fn)[0]
+		
+		try:
+			if time_fmt is None:
+				if  "hour" in fn.lower():
+					times.update({fn: pd.to_datetime(time_str, format="%Y%m%d%H")})
+				elif "day" in fn.lower():
+					times.update({fn: pd.to_datetime(time_str, format="%Y%m%d")})
+				elif "week" in fn.lower():
+					times.update({fn: pd.to_datetime(time_str+"-1", format="%Y%U-%w").to_period(freq='W')})
+				elif "mon" in fn.lower():
+					times.update({fn: pd.to_datetime(time_str, format="%Y%m")})
+				elif "quarter" in fn.lower():
+					times.update({fn: pd.Period(time_str[:4]+"Q"+time_str[-1], freq="Q")})
+				elif "year" in fn.lower():
+					times.update({fn: pd.to_datetime(time_str, format="%Y")})
+				else:
+					times.update({fn: pd.to_datetime(time_str)})
+			else:
+				times.update({fn: pd.to_datetime(time_str, format=time_fmt)})
+		
+		except Exception as e:
+			print(f"Can't convert string: '{time_str}' to datetime.", e)
+			times.update({fn: time_str})
+			
 	return times

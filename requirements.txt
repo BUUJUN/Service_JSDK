@@ -1,4 +1,5 @@
 cartopy~=0.22.0
+dask~=2024.5.0
 geopandas
 h5py~=3.9.0
 h5netcdf~=1.1.0

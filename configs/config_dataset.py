@@ -8,8 +8,10 @@ import numpy as np
 
 T0 = 243.15
 
-lat_interp = np.arange(30.2, 36.0, 0.01)
-lon_interp = np.arange(115.7, 121.5, 0.01)
+lat_interp = np.arange(15.03, 60.03, 1)
+lon_interp = np.arange(70.03, 140.03, 1)
+# lat_interp = np.arange(15.03, 60.03, 0.01)
+# lon_interp = np.arange(70.03, 140.03, 0.01)
 
 var_renames = {
 	"1km": {
@@ -18,6 +20,19 @@ var_renames = {
 		"TEM": 't2m', "DPT": 'd2m', "RH": 'r2m',
 		"WIN": 'ws10', "WIU": 'u10', "WIV": 'v10',
 	},
+	"5km": {
+		"lon": 'lon', "lat": 'lat',
+		"PRE": 'tp', "PRS": 'sp',
+		"TEM": 't2m', "DPT": 'd2m', "RH": 'r2m',
+		"WIN": 'ws10', "WIU": 'u10', "WIV": 'v10',
+	},
+	"skjc":{
+		"lon": 'lon', "lat": 'lat',
+		"PRE_1h": 'tp', "PRS": 'sp',
+		"TEM": 't2m', "RHU": 'r2m',
+		"WIN_S_Avg_2mi": 'ws10', "WIN_D_Avg_2mi": 'wd10',
+		"CLO_Cov": 'tcc',
+	}
 }
 
 var_reattrs = {
@@ -35,5 +50,6 @@ var_reattrs = {
 	'u10': {'units': 'm/s', 'long_name': '10 metre U wind component', 'standard_name': '10m_u_component_of_wind'},
 	'v10': {'units': 'm/s', 'long_name': '10 metre V wind component', 'standard_name': '10m_v_component_of_wind'},
 	'ws10': {'units': 'm/s', 'long_name': '10 metre wind speed', 'standard_name': '10m_wind_speed'},
+	'wd10': {'units': 'degree', 'long_name': '10 metre wind direction', 'standard_name': '10m_wind_direction'},
 }
 

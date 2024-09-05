@@ -22,7 +22,7 @@ class Statis_Period(object):
 		self.year = pd.to_datetime(time).to_period('Y').strftime('%Y')
 		self.season = pd.to_datetime(time).to_period('M').astype('period[Q-NOV]').astype('str')
 		self.month = pd.to_datetime(time).to_period('M').strftime('%Y-%m')
-		self.week = pd.to_datetime(time).strftime('%Y-%U')
+		self.week = pd.to_datetime(time).strftime('%YW%U')
 		self.day = pd.to_datetime(time).to_period('D').strftime('%Y-%m-%d')
 	
 	def __getitem__(self, item):
@@ -54,9 +54,9 @@ class Statis_Period(object):
 		return data_statis
 	
 	def mean(self, data: Union[xr.Dataset, xr.DataArray], period, avg=True):
-		return self.apply_operation(data, period, lambda array:array.mean(dim="time"), avg=avg)
+		return self.apply_operation(data, period, lambda array: array.mean(dim="time"), avg=avg)
 	
 	def sum(self, data: Union[xr.Dataset, xr.DataArray], period, avg=True):
-		return self.apply_operation(data, period, lambda array:array.sum(dim="time"), avg=avg)
+		return self.apply_operation(data, period, lambda array: array.sum(dim="time"), avg=avg)
 
 
