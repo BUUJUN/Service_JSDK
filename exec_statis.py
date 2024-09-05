@@ -76,7 +76,7 @@ def statis_points(data: Union[xr.DataArray, xr.Dataset], periods:list):
 	
 	res_df = res_df[columns]
 	
-	with pd.ExcelWriter('statics_point.xlsx', engine='openpyxl') as writer:
+	with pd.ExcelWriter('statics_points.xlsx', engine='openpyxl') as writer:
 		res_df.to_excel(writer, index=False)
 	
 	return res_df
