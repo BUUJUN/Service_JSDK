@@ -13,15 +13,17 @@ import xarray as xr
 import pandas as pd
 from typing import Union
 
+from configs import period_id
+
 
 class Statis_Period(object):
 	def __init__(self, time: np.ndarray, ):
 		self.time = time
-		self.year = pd.to_datetime(time).to_period('Y').astype('datetime64[ns]')
+		self.year = pd.to_datetime(time).to_period('Y').strftime('%Y')
 		self.season = pd.to_datetime(time).to_period('M').astype('period[Q-NOV]').astype('str')
-		self.month = pd.to_datetime(time).to_period('M').astype('datetime64[ns]')
+		self.month = pd.to_datetime(time).to_period('M').strftime('%Y-%m')
 		self.week = pd.to_datetime(time).strftime('%Y-%U')
-		self.day = pd.to_datetime(time).to_period('D').astype('datetime64[ns]')
+		self.day = pd.to_datetime(time).to_period('D').strftime('%Y-%m-%d')
 	
 	def __getitem__(self, item):
 		if item=='year': return self.year
@@ -42,10 +44,12 @@ class Statis_Period(object):
 			return None
 		
 		# 使用 operation 函数对分组数据进行操作
-		data_statis = data.groupby(data.time.copy(data=self[period])).map(operation)
+		data_statis = data.groupby(data.time.copy(data=self[period])).apply(operation)
 		
 		if avg:
 			data_statis = data_statis.mean(dim=list(set(data_statis.dims) - {'time'}))
+		
+		data_statis["period_id"] = period_id[period]
 		
 		return data_statis
 	

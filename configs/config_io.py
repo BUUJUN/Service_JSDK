@@ -78,6 +78,10 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 	if varlist is None:
 		varlist = ['*']
 	
+	if 'wd10' in varlist:
+		varlist.extend(['u10', 'v10'])
+		varlist.remove('wd10')
+	
 	varlist = [file_vars[v] if v in file_vars else v for v in varlist]
 	
 	fns = list()
