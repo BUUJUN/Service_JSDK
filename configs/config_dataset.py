@@ -20,7 +20,7 @@ var_renames = {
 	},
 }
 
-var_attrs = {
+var_reattrs = {
 	'lon': {'units': 'degrees_east', 'long_name': 'longitude', 'standard_name': 'longitude'},
 	'lat': {'units': 'degrees_north', 'long_name': 'latitude', 'standard_name': 'latitude'},
 	'tp': {'units': 'mm/day', 'long_name': 'Total precipitation', 'standard_name': 'total_precipitation'},
