@@ -13,7 +13,7 @@ from configs import shp_jiangsu
 from configs import points
 from core import Reader, select_shp, select_points, Statis_Period
 
-def statis_region(data:Union[xr.DataArray, xr.Dataset], ):
+def statis_region(data:Union[xr.DataArray, xr.Dataset], periods:list):
 	
 	statis = Statis_Period(data.time.data)
 	
@@ -21,14 +21,12 @@ def statis_region(data:Union[xr.DataArray, xr.Dataset], ):
 	region_info = list(set(tuple(row) for _,row in shp_jiangsu.loc[:, ["PAC", "NAME"]].iterrows()))
 	region_select = [select_shp(data, shp_jiangsu[shp_jiangsu.PAC == pac]) for pac,_ in region_info]
 	
-	region_res = {
-		"month": [statis.mean(sel, "month", avg=True) for sel in region_select],
-		"season": [statis.mean(sel, "season", avg=True) for sel in region_select],
-		"year": [statis.mean(sel, "year", avg=True) for sel in region_select],
+	res_dict = {
+		period:[statis.mean(sel, period, avg=True) for sel in region_select] for period in periods
 	}
 	
-	for period in region_res:
-		data_p = region_res[period]
+	for period in res_dict:
+		data_p = res_dict[period]
 		data_p = [data.expand_dims({
 			"id": [region_info[i][0]], "name": [region_info[i][1]]
 		}).to_dataframe() for i, data in enumerate(data_p) if data]
@@ -36,7 +34,7 @@ def statis_region(data:Union[xr.DataArray, xr.Dataset], ):
 		data_p = [x for x in data_p if x is not None]
 		
 		if not data_p:
-			region_res.update({period: None})
+			res_dict.update({period: None})
 			continue
 		
 		data_p = pd.concat(data_p)
@@ -49,22 +47,25 @@ def statis_region(data:Union[xr.DataArray, xr.Dataset], ):
 		
 		data_p = data_p[columns]
 		
-		region_res.update({period: data_p})
+		res_dict.update({period: data_p})
+		
+	with pd.ExcelWriter('statics_region.xlsx') as writer:
+		[res_dict[period].to_excel(writer, sheet_name=period) for period in res_dict]
 	
-	return region_res
+	return res_dict
 
 
-def statis_points(data: Union[xr.DataArray, xr.Dataset], ):
+def statis_points(data: Union[xr.DataArray, xr.Dataset], periods:list):
 	statis = Statis_Period(data.time.data)
 	# 站点统计
 	points_select = select_points(data, points)
 	
-	region_res = {
-		"month": statis.mean(points_select, "month", avg=False), "season": statis.mean(points_select, "season", avg=False),
-		"year": statis.mean(points_select, "year", avg=False), }
+	res_dict = {
+		period:statis.mean(points_select, "month", avg=False) for period in periods
+	}
 	
-	for period in region_res:
-		data_p = region_res[period]
+	for period in res_dict:
+		data_p = res_dict[period]
 		data_p = data_p.reset_coords().to_dataframe().reset_index()
 		
 		columns = \
@@ -73,9 +74,12 @@ def statis_points(data: Union[xr.DataArray, xr.Dataset], ):
 		
 		data_p = data_p[columns]
 		
-		region_res.update({period: data_p})
+		res_dict.update({period: data_p})
 	
-	return region_res
+	with pd.ExcelWriter('statics_points.xlsx') as writer:
+		[res_dict[period].to_excel(writer, sheet_name=period) for period in res_dict]
+	
+	return res_dict
 
 
 if __name__ == '__main__':
@@ -85,5 +89,5 @@ if __name__ == '__main__':
 	reader = Reader(dsname="1km", dtlist=time_range, varlist=['tp', 't2m'])
 	ds_load = reader.load_data()
 	
-	region_df = statis_region(ds_load)
-	points_df = statis_points(ds_load)
+	region_df = statis_region(ds_load, periods=["month", "season", "year"])
+	points_df = statis_points(ds_load, periods=["month", "season", "year"])

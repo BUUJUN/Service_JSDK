@@ -88,7 +88,7 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 		
 		for v in varlist:
 			fn_format = file_fmt.format(var=v, **kwargs)
-			print("[File Format]:\t", fn_format)
+			# print("[File Format]:\t", fn_format)
 			fns.extend(glob(os.path.join(file_path, fn_format)))
 	
 	fns = sorted(list(set(fns)))
