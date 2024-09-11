@@ -29,7 +29,7 @@ file_info = {
 	"5km": {
 		"prefix": os.path.join(dsfile_root, "4-5km_grid"),
 		"format": "5KM_{var}_{ymdh}.nc",
-		"time_re": r"1KM_\w+_(\d+).nc",
+		"time_re": r"5KM_\w+_(\d+).nc",
 		"time_fmt":"%Y%m%d%H",
 		"type": "nc",
 		"vars": {
@@ -40,7 +40,7 @@ file_info = {
 	},
 	"skjc": {
 		"prefix": os.path.join(dsfile_root, "9-skjc"),
-		"format": os.path.join("**", "SURF-{region}-{period}-{time}.txt"),
+		"format": os.path.join("**", "SURF-{region}-{period}-{time_str}.txt"),
 		"time_re": r"SURF-\w+-\w+-(\d+).txt",
 		"time_fmt": None,
 		"type": "txt",
@@ -71,6 +71,8 @@ def convert_time(dt):
 			"ymdhm_fcst": dt.strftime("%Y%m%d%H%M"),
 			"ymd_h_m_s_fcst": dt.strftime("%Y%m%d%H%M%S"),
 			"hm": dt.strftime("%H%M"),
+			"yq": pd.Period(dt, freq='Q-DEC').strftime("%Y0%q") ,
+			"yw": dt.strftime('%Y%W'),
 		}
 	except Exception as e:
 		# print(f"[Warning]:\t输入的变量 `dt={dt}` 的数据类型为 {type(dt)}")
@@ -84,6 +86,8 @@ def convert_time(dt):
 			"ymdhm_fcst": '*',
 			"ymd_h_m_s_fcst": '*',
 			"hm": '*',
+			"yq": '*',
+			"yw": '*',
 		}
 
 
@@ -113,7 +117,7 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 	
 	varlist = list(set(varlist))
 	
-	print(varlist)
+	# print(varlist)
 	
 	fns = list()
 	
@@ -121,17 +125,57 @@ def extract_files(dsname, dtlist: list = None, varlist: list = None, **fmt_kwarg
 		kwargs = convert_time(dt)
 		kwargs.update(fmt_kwargs)
 		
-		for v in varlist:
-			fn_format = file_fmt.format(var=v, **kwargs)
-			# print("[File Format]:\t", fn_format)
-			# print(os.path.join(file_path, fn_format))
-			fns.extend(glob(os.path.join(file_path, fn_format)))
+		if dsname in ['skjc']:
+			period_time = {
+				"DAY": kwargs['ymd'],
+				"HOUR": kwargs['ymdh'],
+				"MON": kwargs['ym'],
+				"QUARTER": kwargs['yq'],
+				"WEEK": kwargs['yw'],
+			}
+			
+			if not 'period' in fmt_kwargs.keys():
+				periods = ['DAY']
+			
+			else:
+				if fmt_kwargs['period'] is None or fmt_kwargs['period'] == '*':
+					periods = ['DAY', 'MON', 'QUARTER']
+				
+				elif type(fmt_kwargs['period']) is str:
+					periods = [fmt_kwargs['period']]
+				
+				else:
+					periods = fmt_kwargs['period']
+			
+			periods = list( set(periods) & set(period_time) )
+			
+			if not periods:
+				print(f"输入参数`period`有误，应为 {set(period_time)}")
+				return []
+			
+			time_strs = [period_time[p] for p in periods]
+			
+			for t, p in zip(time_strs, periods):
+				kwargs.update({'period':p, 'time_str':t})
+				fn_format = file_fmt.format(**kwargs)
+				fns.extend(glob(os.path.join(file_path, fn_format)))
+		
+		else:
+			for v in varlist:
+				fn_format = file_fmt.format(var=v, **kwargs)
+				# print("[File Format]:\t", fn_format)
+				# print(os.path.join(file_path, fn_format))
+				fns.extend(glob(os.path.join(file_path, fn_format)))
 	
 	fns = sorted(list(set(fns)))
 	
 	return fns
 
 def extract_times(dsname, filenames):
+	
+	if not filenames:
+		return dict()
+	
 	time_re = file_info[dsname]['time_re']
 	time_fmt = file_info[dsname]['time_fmt']
 	

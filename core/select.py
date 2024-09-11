@@ -6,6 +6,7 @@ Created on 2024/09/03 17:19
 ____ ____
 选择统计区域
 """
+import pandas as pd
 import xarray as xr
 import numpy as np
 from typing import Union
@@ -34,10 +35,13 @@ def select_rect(data: Union[xr.Dataset, xr.DataArray], lon0: float, lon1: float,
 	return data_sel
 
 
-def select_region(data: Union[xr.Dataset, xr.DataArray], region, col=None):
+def select_region(data: Union[xr.Dataset, xr.DataArray], region):
 	shp_sel = get_shp(region)
-	# print(shp_sel)
-	return select_shp(data, shp_sel, col=col)
+	data_sel = select_shp(data, shp_sel, col="PAC")
+	data_sel = data_sel.assign_coords({'region': data_sel.region.where(region),})
+	data_sel.attrs.update(region_id=shp_sel.PAC.unique()[0])
+
+	return data_sel
 
 
 def select_shp(data: Union[xr.Dataset, xr.DataArray], data_shp, col=None):
@@ -49,7 +53,6 @@ def select_shp(data: Union[xr.Dataset, xr.DataArray], data_shp, col=None):
 	:return: 切片后的数据
 	'''
 	groups = int(np.ceil(len(data_shp) / 31))
-	
 	data_shp_split = []
 	
 	for i in range(groups):
@@ -65,8 +68,10 @@ def select_shp(data: Union[xr.Dataset, xr.DataArray], data_shp, col=None):
 			mask = xr.where(np.isnan(mask), rm.mask_geopandas(data_shp_i, data.lon, data.lat), mask)
 	
 	if (col is not None) and (col in data_shp.columns):
-		replace_func = np.vectorize(lambda x: data_shp[col].loc[x] if ~np.isnan(x) else np.nan)
-		mask = mask.copy(data=replace_func(mask).astype(object))
+		mask = xr.where(np.isnan(mask), 'nan', mask).astype(object)
+		replace_func = np.vectorize(lambda x: data_shp[col].loc[x] if x!='nan' else 'nan')
+		mask = mask.copy(data=replace_func(mask))
+		mask = xr.where(mask=='nan', np.nan, mask)
 	
 	mask = mask.chunk({'lat': data.chunks['lat'], 'lon': data.chunks['lon']})
 	data = data.assign_coords({"region": mask})

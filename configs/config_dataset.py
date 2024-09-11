@@ -8,10 +8,12 @@ import numpy as np
 
 T0 = 243.15
 
-lat_interp = np.arange(15.03, 60.03, 1)
-lon_interp = np.arange(70.03, 140.03, 1)
-# lat_interp = np.arange(15.03, 60.03, 0.01)
-# lon_interp = np.arange(70.03, 140.03, 0.01)
+# lat_interp = np.arange(15, 60, 1)
+# lon_interp = np.arange(70, 140, 1)
+# lat_interp = np.arange(15, 60, 0.01)
+# lon_interp = np.arange(70, 140, 0.01)
+lat_interp = np.arange(15, 60, 0.05)
+lon_interp = np.arange(70, 140, 0.05)
 
 var_renames = {
 	"1km": {

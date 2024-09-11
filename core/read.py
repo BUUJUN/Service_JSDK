@@ -15,6 +15,7 @@ from joblib import Parallel, delayed
 import warnings
 
 from .select import select_shp, select_points, select_region
+from .function import apply_dominant_dims
 from configs import file_info, lat_interp, lon_interp, var_reattrs, var_renames, extract_files, extract_times, T0, period_id
 
 
@@ -85,8 +86,8 @@ class Reader(object):
 		
 		if ds is None: return None
 		try:
-			ds_interp = ds.interp(lon=lon_i, lat=lat_i, method='linear', **kwargs).chunk({"lon": 80, "lat": 70})
-			return ds_interp
+			ds = ds.interp(lon=lon_i, lat=lat_i, method='nearest', **kwargs).chunk({"lon": 80, "lat": 70})
+			return ds
 		except Exception as e:
 			print(f"插值{list(ds.data_vars)}错误", e)
 			return None
@@ -100,10 +101,6 @@ class Reader(object):
 			if self.dsname in ['1km']:
 				if 'tp' in ds_standard.data_vars:
 					ds_standard['tp'] = ds_standard.tp * 24
-				if 't2m' in ds_standard.data_vars:
-					ds_standard['t2m'] = ds_standard.t2m - T0
-				if 'd2m' in ds_standard.data_vars:
-					ds_standard['d2m'] = ds_standard.d2m - T0
 				if 'sp' in ds_standard.data_vars:
 					ds_standard['sp'] = ds_standard.sp * 0.01
 			
@@ -115,7 +112,12 @@ class Reader(object):
 					else:
 						u = ds_standard.u10
 						v = ds_standard.v10
-						ds_standard['wd10'] = u.copy(data=(270 - np.arctan2(v.data, u.data) * 180 / np.pi) % 360)
+						ds_standard['wd10'] = \
+							u.copy(data=np.mod((180.+np.arctan2(u.data,v.data)*180/np.pi), 360))
+						ds_standard['wd10_2'] = u.copy(data=np.floor(np.divide(ds_standard.wd10, 45))).astype(int)
+						if self.varlist is not None: self.varlist.append('wd10_2')
+						print('ok')
+			
 			
 			[ds_standard[var].attrs.update(self.var_reattrs[var]) for var in set(self.var_reattrs) & set(ds_standard.variables)]
 			
@@ -130,7 +132,7 @@ class Reader(object):
 			return ds_standard
 		
 		elif self.dsname in ['skjc']:
-			data.rename(columns={data.columns[0]: "name", data.columns[1]: "region"}, inplace=True)
+			data.rename(columns={data.columns[0]: "region", data.columns[1]: "region_id"}, inplace=True)
 			data.rename(columns={col: self.var_renames[col] for col in (set(data.columns) & set(self.var_renames))}, inplace=True)
 			data.rename(columns={col: col.lower() for col in data.columns}, inplace=True)
 			
@@ -193,7 +195,16 @@ class Reader(object):
 				warnings.warn(f"读取数据为空")
 				return None
 			
-			ds_merge = xr.merge(ds_list, compat='override')
+			ds_vars_list = list(set([v for x in ds_list for v in x.data_vars]))
+			ds_dict = {v: [] for v in ds_vars_list}
+			for dsi in ds_list:
+				for vari in dsi.data_vars:
+					ds_dict[vari].append(dsi[vari])
+			
+			for vari in ds_dict:
+				ds_dict[vari] = xr.concat(ds_dict[vari], dim='time')
+			
+			ds_merge = xr.Dataset(ds_dict)
 			ds_merge = self.standard_data(ds_merge)
 			
 			print(f"数据加载成功！")
@@ -215,7 +226,7 @@ class Reader(object):
 			
 			df_concat = pd.concat(df_list, axis=0).reset_index(drop=True)
 			
-			columns_new = ["name", "region", "lon", "lat", "period_id", "time"]
+			columns_new = ["region", "region_id", "lon", "lat", "period_id", "time"]
 			columns_new = columns_new + [col for col in df_concat.columns if col not in columns_new]
 			df_concat = df_concat[columns_new]
 			
@@ -239,7 +250,7 @@ class Reader(object):
 				else:
 					ds = self.interp_data(ds)
 				try:
-					ds = select_region(ds, region, col='PAC').groupby("region").mean()
+					ds = select_region(ds, region)
 					return ds
 				except Exception as e:
 					print(e)
@@ -253,12 +264,29 @@ class Reader(object):
 				warnings.warn(f"读取数据为空")
 				return None
 			
-			ds_merge = xr.merge(ds_list, compat='override')
+			attrs = ds_list[0].attrs
+			
+			ds_vars_list = list(set([v for x in ds_list for v in x.data_vars]))
+			ds_dict = {v: [] for v in ds_vars_list}
+			for dsi in ds_list:
+				for vari in dsi.data_vars:
+					ds_dict[vari].append(dsi[vari])
+			
+			for vari in ds_dict:
+				ds_dict[vari] = xr.concat(ds_dict[vari], dim='time')
+			
+			ds_merge = xr.Dataset(ds_dict)
 			ds_merge = self.standard_data(ds_merge)
+			ds_region = ds_merge.groupby("region").mean()
+			if 'wd10_2' in ds_merge.data_vars:
+				ds_region['wd10_2'] = ds_merge.wd10_2.load().groupby("region")\
+					.apply(lambda da:apply_dominant_dims(da, dims=['stacked']))
+			
+			ds_region.attrs.update(attrs)
 			
 			print(f"数据加载成功！")
 			
-			return ds_merge
+			return ds_region
 		else:
 			print("该文件类型读取功能暂未开发！")
 			return None
@@ -288,7 +316,16 @@ class Reader(object):
 				warnings.warn(f"读取数据为空")
 				return None
 			
-			ds_merge = xr.merge(ds_list, compat='override')
+			ds_vars_list = list(set([v for x in ds_list for v in x.data_vars]))
+			ds_dict = {v:[] for v in ds_vars_list}
+			for dsi in ds_list:
+				for vari in dsi.data_vars:
+					ds_dict[vari].append(dsi[vari])
+			
+			for vari in ds_dict:
+				ds_dict[vari] = xr.concat(ds_dict[vari], dim='time')
+			
+			ds_merge = xr.Dataset(ds_dict)
 			ds_merge = self.standard_data(ds_merge)
 			
 			print(f"数据加载成功！")
